@@ -14,6 +14,8 @@
 * 支持下拉刷新
 * 横向分页滑动 + 自动布局（Masonry）
 
+![实现效果](https://i.postimg.cc/wvVzFDrd/wei-xin-tu-pian-20251124191805-411-51.png)
+
 ## 技术栈
 整体采用了MVC 的架构，使用Masonry 进行视图布局，AFNetWorking 进行网络请求并封装为单例类，JSONModel 进行数据转换，SDWebImage 进行头像加载的优化，Userdefault 实现一些信息的本地化存储。
   - 关注列表页面：基于UITableView 的自定义cell实现还原，并优化以提升性能，同时采用GCD优化性能，避免主线程阻塞。
