@@ -23,7 +23,6 @@
   NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
   NSString *dbPath = [docs stringByAppendingPathComponent:@"followUsers.db"];
   self.dbQueue = [FMDatabaseQueue databaseQueueWithPath:dbPath];
-
   [self.dbQueue inDatabase:^(FMDatabase * _Nonnull db) {
     BOOL result = [db executeUpdate:@"CREATE TABLE IF NOT EXISTS FollowUser (userId TEXT PRIMARY KEY, username TEXT, avatar TEXT, isV INTEGER, isFollowing INTEGER, isSpecial INTEGER, isMutualFollow INTEGER, remarkName TEXT, cursor INTEGER)"];
     if (!result) {
@@ -32,9 +31,16 @@
   }];
 }
 
+//清空数据库，用来清除之前的old数据（错误添加数据时使用）
+- (void)resetDB {
+    NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *dbPath = [docs stringByAppendingPathComponent:@"followUsers.db"];
+    [[NSFileManager defaultManager] removeItemAtPath:dbPath error:nil];
+    [self setupDB];
+}
+
 -(void) saveUser:(FollowUserModel *) user {
   if (!user.userId) return;
-
   [self.dbQueue inDatabase:^(FMDatabase * _Nonnull db) {
     [db executeUpdate:@"REPLACE INTO FollowUser (userId, username, avatar, isV, isFollowing, isSpecial, isMutualFollow, remarkName, cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
              user.userId,
@@ -72,18 +78,22 @@
 //}
 - (void)saveUsers:(NSArray<FollowUserModel *> *)users {
     [self.dbQueue inTransaction:^(FMDatabase * _Nonnull db, BOOL * _Nonnull rollback) {
-        for (FollowUserModel *user in users) {
-            [db executeUpdate:@"REPLACE INTO FollowUser (userId, username, avatar, isV, isFollowing, isSpecial, isMutualFollow, remarkName, cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                 user.userId,
-                 user.username,
-                 user.avatar,
-                 @(user.isV),
-                 @(user.isFollowingBool),
-                 @(user.isSpecialBool),
-                 @(user.isMutualFollowBool),
-                 user.remarkName ?: @"",
-                 user.cursor ?: @(0)];
+      for (FollowUserModel *user in users) {
+        FMResultSet *rs = [db executeQuery:@"SELECT userId FROM FollowUser WHERE userId = ?", user.userId];
+        if(![rs next]) {
+          [db executeUpdate:@"REPLACE INTO FollowUser (userId, username, avatar, isV, isFollowing, isSpecial, isMutualFollow, remarkName, cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+           user.userId,
+           user.username,
+           user.avatar,
+           @(user.isV),
+           @(user.isFollowingBool),
+           @(user.isSpecialBool),
+           @(user.isMutualFollowBool),
+           user.remarkName ?: @"",
+           user.cursor ?: @(0)];
         }
+        [rs close];
+      }
     }];
 }
 

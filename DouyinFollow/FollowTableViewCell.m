@@ -156,26 +156,32 @@ static SDImageRoundCornerTransformer *avatarTransformer = nil;
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:self.specialTagLabel.bounds
+                                                    cornerRadius:self.specialTagLabel.bounds.size.height / 2];
+    if (!self.specialTagLabel.layer.mask) {
+        CAShapeLayer *mask = [CAShapeLayer layer];
+        mask.path = path.CGPath;
+        self.specialTagLabel.layer.mask = mask;
+    } else {
+        ((CAShapeLayer *)self.specialTagLabel.layer.mask).path = path.CGPath;
+    }
+  //删除旧的border
+    for (CALayer *layer in self.specialTagLabel.layer.sublayers.copy) {
+        if ([layer.name isEqualToString:@"specialTagBorder"]) {
+            [layer removeFromSuperlayer];
+        }
+    }
 
-  UIBezierPath *tagPath = [UIBezierPath bezierPathWithRoundedRect:self.specialTagLabel.bounds cornerRadius:(CGFloat)self.specialTagLabel.bounds.size.height/2];
-  CAShapeLayer *tagMask = [CAShapeLayer layer];
-  tagMask.path = tagPath.CGPath;
-  self.specialTagLabel.layer.mask = tagMask;
+    //添加新 border
+    CAShapeLayer *border = [CAShapeLayer layer];
+    border.name = @"specialTagBorder";
+    border.path = path.CGPath;
+    border.frame = self.specialTagLabel.bounds;
+    border.strokeColor = [UIColor grayColor].CGColor;
+    border.fillColor = UIColor.clearColor.CGColor;
+    border.lineWidth = 0.5;
 
-  CAShapeLayer *tagBorderLayer = [CAShapeLayer layer];
-  tagBorderLayer.path = tagPath.CGPath;
-  tagBorderLayer.strokeColor = [UIColor grayColor].CGColor;
-  tagBorderLayer.fillColor = [UIColor clearColor].CGColor;
-  tagBorderLayer.lineWidth = 0.5;
-  tagBorderLayer.name = @"specialTagBorder";
-  tagBorderLayer.frame = self.specialTagLabel.bounds;
-  [self.specialTagLabel.layer addSublayer:tagBorderLayer];
-
-  // FollowBtn mask and border
-  UIBezierPath *followBtnPath = [UIBezierPath bezierPathWithRoundedRect:self.followBtn.bounds cornerRadius:3.0];
-  CAShapeLayer *followBtnMask = [CAShapeLayer layer];
-  followBtnMask.path = followBtnPath.CGPath;
-  self.followBtn.layer.mask = followBtnMask;
+    [self.specialTagLabel.layer addSublayer:border];
 }
 
 - (void)setupWithModel:(FollowUserModel *)model {

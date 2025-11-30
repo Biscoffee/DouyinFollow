@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) FMDatabaseQueue *dbQueue;
 
 + (id)sharedManager;
+- (void)resetDB;
 - (void)setupDatabase;
 - (void)saveUser:(FollowUserModel *)user;
 - (void)saveUsers:(NSArray<FollowUserModel *> *)users;

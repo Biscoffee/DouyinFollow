@@ -26,6 +26,7 @@
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  //[[FMDBManager sharedManager] resetDB];
   self.title = @"抖音关注";
   self.view.backgroundColor = [UIColor whiteColor];
   self.users = [NSMutableArray array];
@@ -48,12 +49,12 @@
   NSArray *lacalUsers = [[FMDBManager sharedManager] getUsersWithGroup:0 pageSize:13];
   if (lacalUsers.count > 0) {
     NSLog(@"从本地加载：%@",[NSDate date]);
-    [self.users addObjectsFromArray:lacalUsers];
+    self.users = [lacalUsers mutableCopy];
     [self.tableView reloadData];
   }
-  dispatch_async(dispatch_get_global_queue(0, 0), ^{
+  //dispatch_async(dispatch_get_global_queue(0, 0), ^{
   [self loadFollowData];
-  });
+  //});
 }
 
 - (void)setupTableView {
@@ -84,43 +85,48 @@
 }
 
 - (void)loadFollowData {
-  NSInteger group = [NetworkManager sharedManager].group;
-  [[NetworkManager sharedManager] getFollowListWithGroup:[NetworkManager sharedManager].group success:^(NSArray<FollowUserModel *> * _Nonnull users, NSInteger nextGroup, BOOL hasMore) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      self.isLoadingMore = NO;
-      //[self.users addObjectsFromArray:users];
-      if (group == 0) {
-        self.users = [users mutableCopy];
-        [self.tableView reloadData];
-      } else {
-        NSInteger oldCount = self.users.count;
-        [self.users addObjectsFromArray:users];
+    NSInteger group = [NetworkManager sharedManager].group;
 
-        NSMutableArray *indexPaths = [NSMutableArray array];
-        for (NSInteger i = 0; i < users.count; i++) {
-            [indexPaths addObject:[NSIndexPath indexPathForRow:oldCount + i inSection:0]];
+    [[NetworkManager sharedManager] getFollowListWithGroup:group
+                                                   success:^(NSArray<FollowUserModel *> * _Nonnull users,
+                                                             NSInteger nextGroup,
+                                                             BOOL hasMore) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.isLoadingMore = NO;
+            if (group == 0) {
+                self.users = [users mutableCopy];
+            } else {
+                [self.users addObjectsFromArray:users];
+            }
+
+            // 排序（可选）
+            [self sortUsersBySpecialFollow:nil];
+
+            // 刷新 tableView
+            [self.tableView reloadData];
+
+            // 更新分页状态
+            [NetworkManager sharedManager].group = nextGroup;
+            [NetworkManager sharedManager].hasMore = hasMore;
+
+            // 结束刷新控件
+            if (self.tableView.refreshControl.isRefreshing) {
+                [self.tableView.refreshControl endRefreshing];
+            }
+
+            NSLog(@"收到用户数量 = %ld", users.count);
+        });
+    } failure:^(NSString * _Nonnull error) {
+        NSLog(@"请求失败");
+        self.isLoadingMore = NO;
+
+        // 如果刷新控件在刷新，结束刷新
+        if (self.tableView.refreshControl.isRefreshing) {
+            [self.tableView.refreshControl endRefreshing];
         }
-
-        [self.tableView beginUpdates];
-        [self.tableView insertRowsAtIndexPaths:indexPaths withRowAnimation:UITableViewRowAnimationNone];
-        [self.tableView endUpdates];
-      }
-      //[self sortUsersBySpecialFollow:nil];
-      [self.tableView reloadData];
-      [self sortUsersBySpecialFollow:nil];
-//                  [NetworkManager sharedManager].group = nextGroup;
-//                  [NetworkManager sharedManager].hasMore = hasMore;
-
-      NSLog(@"收到用户数量 = %ld", users.count);
-      if (self.tableView.refreshControl.isRefreshing) {
-        [self.tableView.refreshControl endRefreshing];
-      }
-    });
-  } failure:^(NSString * _Nonnull error) {
-    NSLog(@"请求失败");
-    self.isLoadingMore = NO;
-  }];
+    }];
 }
+
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     if (![NetworkManager sharedManager].hasMore) return;

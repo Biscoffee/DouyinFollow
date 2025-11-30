@@ -26,7 +26,7 @@
       _isSpecial = @NO;
               
       //dispatch_async(dispatch_get_global_queue(0, 0), ^{
-        [self loadLocalState];
+       // [self loadLocalState];
       //});
     }
     return self;
