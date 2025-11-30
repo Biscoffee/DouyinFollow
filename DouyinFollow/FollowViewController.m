@@ -11,12 +11,15 @@
 #import "NetworkManager.h"
 #import "moreViewController.h"
 #import <Masonry/Masonry.h>
+#import "FMDBManager.h"
 
 @interface FollowViewController () <UITableViewDelegate, UITableViewDataSource, FollowTableViewCellDelegate, moreViewControllerDelegate>
+
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSMutableArray<FollowUserModel *> *users;
+@property (nonatomic, assign) BOOL isLoadingMore;
 - (NSMutableArray<FollowUserModel *> *)sortUsersBySpecialFollow:(NSArray<FollowUserModel *> *)userList;
-- (void)sortUsersBySpecialFollow;
+
 @end
 
 @implementation FollowViewController
@@ -26,21 +29,30 @@
   self.title = @"抖音关注";
   self.view.backgroundColor = [UIColor whiteColor];
   self.users = [NSMutableArray array];
+  [NetworkManager sharedManager].group = 0;
+  [NetworkManager sharedManager].hasMore = YES;
   [self setupTableView];
-  NSDictionary *cache = [[NSUserDefaults standardUserDefaults] objectForKey:followKey];
-  if (cache) {
-    NSArray *data = cache[@"data"];
-    NSArray *users = [FollowUserModel arrayOfModelsFromDictionaries:data error:nil];
-    for (FollowUserModel *m in users) {
-        [m loadLocalState];
-    }
-    self.users = [users mutableCopy];
-    [self.tableView reloadData];
-    [self sortUsersBySpecialFollow:nil];
-  }
+// [self loadFollowData];
+//  NSDictionary *cache = [[NSUserDefaults standardUserDefaults] objectForKey:followKey];
+//  if (cache) {
+//      NSArray *users = [FollowUserModel arrayOfModelsFromDictionaries:cache error:nil];
+//      for (FollowUserModel *m in users) {
+//          [m loadLocalState];
+//      }
+//      self.users = [users mutableCopy];
+//      [self.tableView reloadData];
+//      [self sortUsersBySpecialFollow:nil];
+//
+//  }
 
+  NSArray *lacalUsers = [[FMDBManager sharedManager] getUsersWithGroup:0 pageSize:13];
+  if (lacalUsers.count > 0) {
+    NSLog(@"从本地加载：%@",[NSDate date]);
+    [self.users addObjectsFromArray:lacalUsers];
+    [self.tableView reloadData];
+  }
   dispatch_async(dispatch_get_global_queue(0, 0), ^{
-    [self loadFollowData];
+  [self loadFollowData];
   });
 }
 
@@ -67,67 +79,91 @@
 }
 
 - (void)handleRefresh {
-  [self loadFollowDataWithRefresh:YES];
+  NSLog(@"刷新");
+  [self loadFollowData];
 }
 
 - (void)loadFollowData {
-  [self loadFollowDataWithRefresh:NO];
+  NSInteger group = [NetworkManager sharedManager].group;
+  [[NetworkManager sharedManager] getFollowListWithGroup:[NetworkManager sharedManager].group success:^(NSArray<FollowUserModel *> * _Nonnull users, NSInteger nextGroup, BOOL hasMore) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      self.isLoadingMore = NO;
+      //[self.users addObjectsFromArray:users];
+      if (group == 0) {
+        self.users = [users mutableCopy];
+        [self.tableView reloadData];
+      } else {
+        NSInteger oldCount = self.users.count;
+        [self.users addObjectsFromArray:users];
+
+        NSMutableArray *indexPaths = [NSMutableArray array];
+        for (NSInteger i = 0; i < users.count; i++) {
+            [indexPaths addObject:[NSIndexPath indexPathForRow:oldCount + i inSection:0]];
+        }
+
+        [self.tableView beginUpdates];
+        [self.tableView insertRowsAtIndexPaths:indexPaths withRowAnimation:UITableViewRowAnimationNone];
+        [self.tableView endUpdates];
+      }
+      //[self sortUsersBySpecialFollow:nil];
+      [self.tableView reloadData];
+      [self sortUsersBySpecialFollow:nil];
+//                  [NetworkManager sharedManager].group = nextGroup;
+//                  [NetworkManager sharedManager].hasMore = hasMore;
+
+      NSLog(@"收到用户数量 = %ld", users.count);
+      if (self.tableView.refreshControl.isRefreshing) {
+        [self.tableView.refreshControl endRefreshing];
+      }
+    });
+  } failure:^(NSString * _Nonnull error) {
+    NSLog(@"请求失败");
+    self.isLoadingMore = NO;
+  }];
 }
 
-- (void)loadFollowDataWithRefresh:(BOOL)isRefresh {
-    NSLog(@"现在时间%@", [NSDate date]);
-    [[NetworkManager sharedManager] getFollowListSuccess:^(NSArray<FollowUserModel *> *userList) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSMutableArray *sortedUsers = [self sortUsersBySpecialFollow:userList];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                NSLog(@"UI渲染时间：%@", [NSDate date]);
-                self.users = sortedUsers;
-                [self.tableView reloadData];
-                if (isRefresh && self.tableView.refreshControl.refreshing) {
-                    [self.tableView.refreshControl endRefreshing];
-                }
-            });
-        });
-    } failure:^(NSString *errorMsg) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (isRefresh && self.tableView.refreshControl.refreshing) {
-                [self.tableView.refreshControl endRefreshing];
-            }
-            [self showAlertWithMessage:errorMsg];
-        });
-    }];
-}
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    if (![NetworkManager sharedManager].hasMore) return;
+    if (self.isLoadingMore) return;
 
+    CGFloat offsetY = scrollView.contentOffset.y;
+    CGFloat contentHeight = scrollView.contentSize.height;
+    CGFloat visibleHeight = scrollView.frame.size.height;
+
+    //提前 800 像素预加载）
+    if (offsetY > contentHeight - visibleHeight - 800) {
+        self.isLoadingMore = YES;
+        [self loadFollowData];
+    }
+}
 
 
 - (NSMutableArray<FollowUserModel *> *)sortUsersBySpecialFollow:(NSArray<FollowUserModel *> *)userList {
-    // 如果传入了数组，就排序传入的数组；没传入就用当前self.users
-    NSArray *targetArray = userList ?: self.users;
-    if (targetArray.count == 0) return [NSMutableArray array];
+  NSMutableArray *targetArray = userList ? [userList mutableCopy] : [self.users mutableCopy];
+  if (targetArray.count == 0) return [NSMutableArray array];
 
-    // 核心排序逻辑（只写一次）
-    NSArray *sortedArray = [targetArray sortedArrayUsingComparator:^NSComparisonResult(FollowUserModel *u1, FollowUserModel *u2) {
-        if (u1.isSpecialBool && !u2.isSpecialBool) {
-            return NSOrderedAscending; // 特别关注排前面
-        } else if (!u1.isSpecialBool && u2.isSpecialBool) {
-            return NSOrderedDescending; // 普通关注排后面
-        } else {
-            return NSOrderedSame; // 保持原有顺序
-        }
-    }];
+  NSMutableArray *special = [NSMutableArray array];
+  NSMutableArray *normal = [NSMutableArray array];
 
-    NSMutableArray *result = [sortedArray mutableCopy];
+  for (FollowUserModel *user in targetArray) {
+      if (user.isSpecialBool) {
+          [special addObject:user];
+      } else {
+          [normal addObject:user];
+      }
+  }
+  NSMutableArray *result = [NSMutableArray arrayWithArray:special];
+  [result addObjectsFromArray:normal];
 
-    // 如果是对self.users排序（没传入数组），直接更新并刷新UI
-    if (!userList) {
-        self.users = result;
-        [self.tableView reloadData];
-    }
+  if (!userList) {
+      self.users = result;
+      [self.tableView reloadData];
+  }
 
-    return result;
+  return result;
 }
 
-
+//工具方法，简单工厂思想
 - (void)showAlertWithMessage:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
@@ -158,8 +194,7 @@
 
     [self.tableView reloadRowsAtIndexPaths:@[indexPath]
                           withRowAnimation:UITableViewRowAnimationNone];
-
-    [self sortUsersBySpecialFollow];
+  [self sortUsersBySpecialFollow:nil];
 }
 
 - (void)followCell:(FollowTableViewCell *)cell didClickMoreBtnWithModel:(FollowUserModel *)model {

@@ -25,7 +25,7 @@
       self.model = model;
       self.modalPresentationStyle = UIModalPresentationOverFullScreen;//覆盖于屏幕，背后的内容不可交互
 
-      self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+      self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;//淡入设置
   }
   return self;
 }
@@ -231,6 +231,7 @@
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
   shouldReceiveTouch:(UITouch *)touch {
+      //c i处判断避免在container关闭
   return ![touch.view isDescendantOfView:self.view.subviews.firstObject];
 }
 

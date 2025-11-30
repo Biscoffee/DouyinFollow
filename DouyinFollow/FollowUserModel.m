@@ -6,32 +6,28 @@
 //
 
 #import "FollowUserModel.h"
-
+#import "FMDBManager.h"
 @implementation FollowUserModel
 
 
-+ (BOOL)propertyIsOptional:(NSString *)propertyName {
-    return YES;
-}
++ (BOOL)propertyIsOptional:(NSString *)propertyName { return YES; }
 
-- (instancetype)initWithUserId:(NSString *)userId
-                      username:(NSString *)username
-                        avatar:(NSString *)avatar
-                           isV:(BOOL)isV
-                 isMutualFollow:(BOOL)isMutualFollow {
+- (instancetype)initWithDictionary:(NSDictionary *)dict {
     self = [super init];
     if (self) {
-        _userId = userId ?: @"";
-        _username = username ?: @"";
-        _avatar = avatar ?: @"";
-        _isV = isV;
-        _isFollowing = @YES;
-        _isMutualFollow = @(isMutualFollow);
-        _remarkName = @"";
-        _isSpecial = @NO;
-      dispatch_async(dispatch_get_global_queue(0, 0), ^{
+      _userId = dict[@"userId"] ?: @"";
+      _username = dict[@"username"] ?: @"";
+      _avatar = dict[@"avatar"] ?: @"";
+      _isV = dict[@"isV"] ?: @NO;
+      _cursor = dict[@"cursor"];
+      _isFollowing = @YES;
+      _isMutualFollow = @NO;
+      _remarkName = @"";
+      _isSpecial = @NO;
+              
+      //dispatch_async(dispatch_get_global_queue(0, 0), ^{
         [self loadLocalState];
-      });
+      //});
     }
     return self;
 }
@@ -54,45 +50,19 @@
   return self.username;
 }
 
-- (void)loadLocalState {
-    if (self.userId.length == 0) return;
-
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *prefix = [NSString stringWithFormat:@"Star_%@_", self.userId];
-
-    NSString *savedRemark = [defaults objectForKey:[prefix stringByAppendingString:@"remarkName"]];
-    if (savedRemark) self.remarkName = savedRemark;
-
-    NSString *followKey = [prefix stringByAppendingString:@"isFollowing"];
-    if ([defaults objectForKey:followKey] != nil) {
-        self.isFollowing = @([defaults boolForKey:followKey]);
-    }
-
-    NSString *specialKey = [prefix stringByAppendingString:@"isSpecial"];
-    if ([defaults objectForKey:specialKey] != nil) {
-        self.isSpecial = @([defaults boolForKey:specialKey]);
-    }
-
-    NSString *mutualKey = [prefix stringByAppendingString:@"isMutualFollow"];
-    if ([defaults objectForKey:mutualKey] != nil) {
-        self.isMutualFollow = @([defaults boolForKey:mutualKey]);
-    }
+- (void)saveLocalState {
+  [[FMDBManager sharedManager] saveUser:self];
 }
 
-- (void)saveLocalState {
-    if (self.userId.length == 0) return;
-
-
-  dispatch_async(dispatch_get_global_queue(0, 0), ^{
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *prefix = [NSString stringWithFormat:@"Star_%@_", self.userId];
-
-    [defaults setObject:self.remarkName ?: @"" forKey:[prefix stringByAppendingString:@"remarkName"]];
-    [defaults setBool:self.isFollowingBool forKey:[prefix stringByAppendingString:@"isFollowing"]];
-    [defaults setBool:self.isSpecialBool forKey:[prefix stringByAppendingString:@"isSpecial"]];
-    [defaults setBool:self.isMutualFollowBool forKey:[prefix stringByAppendingString:@"isMutualFollow"]];
-    [defaults synchronize];//这行代码可以让数据立即写入本地。。。？
-  });
-
+- (void) loadLocalState {
+  NSArray *allUsers = [[FMDBManager sharedManager] getAllUsers];
+  for (FollowUserModel *user in allUsers) {
+    if ([user.userId isEqualToString:self.userId]) {
+      self.isFollowing = user.isFollowing;
+      self.isSpecial = user.isSpecial;
+      self.isMutualFollow = user.isMutualFollow;
+      self.remarkName = user.remarkName;
+    }
+  }
 }
 @end

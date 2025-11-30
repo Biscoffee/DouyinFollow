@@ -6,7 +6,7 @@
 //
 
 #import "JSONModel.h"
-
+//#import "FMDBManager.h"
 NS_ASSUME_NONNULL_BEGIN
 
 @interface FollowUserModel : JSONModel
@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy) NSString<Optional> *avatar;
 @property (nonatomic, copy) NSString<Optional> *userId;
 @property (nonatomic, assign) BOOL isV;
+@property (nonatomic, strong) NSNumber *cursor;
 
 //本地状态（不是请求的mock，需要使用 NSNumber<Optional>以兼容 JSONModel，否则JSON会报错。）
 @property (nonatomic, strong) NSNumber<Optional> *isSpecial;
@@ -23,11 +24,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSNumber<Optional> *isMutualFollow;
 @property (nonatomic, copy)   NSString<Optional> *remarkName;
 
-- (instancetype)initWithUserId:(NSString *)userId
-                      username:(NSString *)username
-                        avatar:(NSString *)avatar
-                           isV:(BOOL)isV
-                 isMutualFollow:(BOOL)isMutualFollow;
+- (instancetype)initWithDictionary:(NSDictionary *)dict;
 
 - (BOOL)isSpecialBool;
 - (BOOL)isFollowingBool;

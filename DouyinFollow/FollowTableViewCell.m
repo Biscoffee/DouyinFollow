@@ -10,6 +10,8 @@
 #import <SDWebImage/SDWebImage.h>
 #import <Masonry/Masonry.h>
 
+static SDImageRoundCornerTransformer *avatarTransformer = nil;
+
 @interface FollowTableViewCell ()
 
 @property (nonatomic, strong) UIView *lineView;
@@ -35,26 +37,18 @@
 
 - (void)setupStarCell {
   self.selectionStyle = UITableViewCellSelectionStyleNone;
-
   self.backgroundColor = [UIColor whiteColor];
 
-  _avatarView = [[UIImageView alloc] init];
-//、、  _avatarView.layer.cornerRadius = 20;
-  _avatarView.clipsToBounds = YES;
-  static SDImageRoundCornerTransformer *transformer = nil;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-      transformer = [SDImageRoundCornerTransformer transformerWithRadius:20
-                                                                 corners:UIRectCornerAllCorners
-                                                             borderWidth:0
-                                                             borderColor:nil];
+      avatarTransformer = [SDImageRoundCornerTransformer transformerWithRadius:20
+                                                                       corners:UIRectCornerAllCorners
+                                                                   borderWidth:0
+                                                                   borderColor:nil];
   });
-
-  [self.avatarView sd_setImageWithURL:_currentModel.avatar
-                     placeholderImage:nil
-                                 options:SDWebImageAvoidDecodeImage
-                                context:@{SDWebImageContextImageTransformer: transformer}];
-  _avatarView.backgroundColor = [UIColor colorWithRed:0.95 green:0.95 blue:0.95 alpha:1.0];
+  _avatarView = [[UIImageView alloc] init];
+  _avatarView.clipsToBounds = NO;
+  _avatarView.backgroundColor = [UIColor systemGray4Color];
   [self.contentView addSubview:_avatarView];
 
   _nameLabel = [[UILabel alloc] init];
@@ -71,10 +65,10 @@
   _specialTagLabel.text = @"特别关注";
   _specialTagLabel.font = [UIFont systemFontOfSize:12];
   _specialTagLabel.textColor = [UIColor grayColor];
-  _specialTagLabel.layer.borderColor = [UIColor grayColor].CGColor;
+//  _specialTagLabel.layer.borderColor = [UIColor grayColor].CGColor;
   //这两个为了ui
-  _specialTagLabel.layer.borderWidth = 0.5;
-  _specialTagLabel.layer.cornerRadius = 2.0;
+//  _specialTagLabel.layer.borderWidth = 0.5;
+//  _specialTagLabel.layer.cornerRadius = 2.0;
 //  _specialTagLabel.layer.masksToBounds = YES;
   _specialTagLabel.textAlignment = NSTextAlignmentCenter;
   _specialTagLabel.hidden = YES;
@@ -82,8 +76,8 @@
 
   _followBtn = [UIButton buttonWithType:UIButtonTypeCustom];
   _followBtn.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-  _followBtn.layer.cornerRadius = 3;
-//  _followBtn.clipsToBounds = YES;
+//  _followBtn.layer.cornerRadius = 3;
+//  _followBtn.clipsToBounds = NO;
   [_followBtn addTarget:self action:@selector(followBtnClicked) forControlEvents:UIControlEventTouchUpInside];
   [self.contentView addSubview:_followBtn];
 
@@ -160,28 +154,69 @@
   }];
 }
 
+- (void)layoutSubviews {
+    [super layoutSubviews];
+
+  UIBezierPath *tagPath = [UIBezierPath bezierPathWithRoundedRect:self.specialTagLabel.bounds cornerRadius:(CGFloat)self.specialTagLabel.bounds.size.height/2];
+  CAShapeLayer *tagMask = [CAShapeLayer layer];
+  tagMask.path = tagPath.CGPath;
+  self.specialTagLabel.layer.mask = tagMask;
+
+  CAShapeLayer *tagBorderLayer = [CAShapeLayer layer];
+  tagBorderLayer.path = tagPath.CGPath;
+  tagBorderLayer.strokeColor = [UIColor grayColor].CGColor;
+  tagBorderLayer.fillColor = [UIColor clearColor].CGColor;
+  tagBorderLayer.lineWidth = 0.5;
+  tagBorderLayer.name = @"specialTagBorder";
+  tagBorderLayer.frame = self.specialTagLabel.bounds;
+  [self.specialTagLabel.layer addSublayer:tagBorderLayer];
+
+  // FollowBtn mask and border
+  UIBezierPath *followBtnPath = [UIBezierPath bezierPathWithRoundedRect:self.followBtn.bounds cornerRadius:3.0];
+  CAShapeLayer *followBtnMask = [CAShapeLayer layer];
+  followBtnMask.path = followBtnPath.CGPath;
+  self.followBtn.layer.mask = followBtnMask;
+}
+
 - (void)setupWithModel:(FollowUserModel *)model {
   self.currentModel = model;
   if (!self.currentModel) return;
   self.backgroundColor = model.isSpecialBool ? [UIColor systemGray5Color] : [UIColor whiteColor];
 
-
   if (model.avatar && model.avatar.length > 0) {
-    NSURL *url = [NSURL URLWithString:model.avatar];
-    [self.avatarView sd_setImageWithURL:url
-                       placeholderImage:nil
-                                options:SDWebImageRetryFailed | SDWebImageLowPriority
-                              completed:^(UIImage * _Nullable image, NSError * _Nullable error, SDImageCacheType cacheType, NSURL * _Nullable imageURL) {
-      if (!error && image) {
-        self.avatarView.layer.cornerRadius = 20;
-        self.avatarView.layer.masksToBounds = YES;
-      } else {
-        self.avatarView.image = nil;
+      NSURL *url = [NSURL URLWithString:model.avatar];
+
+      //SDWebImage transformer：后台裁圆角，避免离屏渲染
+      static SDImageRoundCornerTransformer *avatarTransformer = nil;
+      static dispatch_once_t onceToken;
+      dispatch_once(&onceToken, ^{
+          avatarTransformer = [SDImageRoundCornerTransformer transformerWithRadius:20
+                                                                           corners:UIRectCornerAllCorners
+                                                                       borderWidth:0
+                                                                       borderColor:nil];
+      });
+      //缩略图尺寸（40x40 pt * 屏幕 scale）
+    UIScreen *screen = self.window.screen;
+    CGSize avatarSize = CGSizeMake(40 * screen.scale,
+                                   40 * screen.scale);
+
+      [self.avatarView sd_setImageWithURL:url
+                           placeholderImage:[UIImage imageNamed:@"avatar_placeholder"]
+                                    options:SDWebImageRetryFailed |
+                                            SDWebImageLowPriority |
+                                            SDWebImageScaleDownLargeImages |
+                                            SDWebImageDecodeFirstFrameOnly
+                                    context:@{
+          SDWebImageContextImageTransformer: avatarTransformer,
+          SDWebImageContextImageThumbnailPixelSize: @(avatarSize),
+          SDWebImageContextStoreCacheType: @(SDImageCacheTypeMemory)
       }
-    }];
+                                   progress:nil
+                                  completed:nil];
   } else {
-    //self.avatarView.image = nil;
+      self.avatarView.image = nil;
   }
+
   self.nameLabel.text = [model shownName];
   self.vImageView.hidden = !model.isV;
   self.specialTagLabel.hidden = !model.isSpecialBool;
@@ -219,7 +254,7 @@
   [super prepareForReuse];
   [self.avatarView sd_cancelCurrentImageLoad];
   self.avatarView.image = nil;
-  self.avatarView.layer.cornerRadius = 0;
+//  self.avatarView.layer.cornerRadius = 0;
   self.nameLabel.text = nil;
   self.specialTagLabel.hidden = YES;
   self.vImageView.hidden = YES;

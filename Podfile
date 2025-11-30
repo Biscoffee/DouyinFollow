@@ -8,6 +8,7 @@ target 'DouyinFollow' do
     pod 'AFNetworking'
     pod 'JSONModel'
     pod 'Masonry'
+    pod 'FMDB'
     pod 'SocketRocket'
     pod 'JXCategoryView'
     pod 'SDWebImage'
