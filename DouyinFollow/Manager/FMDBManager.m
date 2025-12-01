@@ -31,6 +31,7 @@
   }];
 }
 
+
 //清空数据库，用来清除之前的old数据（错误添加数据时使用）
 - (void)resetDB {
     NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -107,7 +108,7 @@
             user.userId = [rs stringForColumn:@"userId"];
             user.username = [rs stringForColumn:@"username"];
             user.avatar = [rs stringForColumn:@"avatar"];
-            user.isV = @([rs boolForColumn:@"isV"]);
+            user.isV = [rs boolForColumn:@"isV"];
             user.isFollowing = @([rs boolForColumn:@"isFollowing"]);
             user.isSpecial = @([rs boolForColumn:@"isSpecial"]);
             user.isMutualFollow = @([rs boolForColumn:@"isMutualFollow"]);
@@ -130,7 +131,7 @@
             user.userId = [rs stringForColumn:@"userId"];
             user.username = [rs stringForColumn:@"username"];
             user.avatar = [rs stringForColumn:@"avatar"];
-            user.isV = @([rs boolForColumn:@"isV"]);
+            user.isV = [rs boolForColumn:@"isV"];
             user.isFollowing = @([rs boolForColumn:@"isFollowing"]);
             user.isSpecial = @([rs boolForColumn:@"isSpecial"]);
             user.isMutualFollow = @([rs boolForColumn:@"isMutualFollow"]);

@@ -67,13 +67,13 @@
         [users addObject:m];
       }
       [[FMDBManager sharedManager] saveUsers:users];
-        NSArray *finalUsers = [[FMDBManager sharedManager] getUsersWithGroup:group pageSize:13];
+        //NSArray *finalUsers = [[FMDBManager sharedManager] getUsersWithGroup:group pageSize:13];
       NSInteger nextGroup = [dict[@"data"][@"nextGroup"] integerValue];
               BOOL hasMore = [dict[@"data"][@"hasMore"] boolValue];
     dispatch_async(dispatch_get_main_queue(), ^{
       self.group = nextGroup;
       self.hasMore = hasMore;
-          if (success) success(finalUsers, nextGroup, hasMore);
+          if (success) success([users copy], nextGroup, hasMore);
     });
       NSLog(@"下载完成 :%@", [NSDate date]);
       });

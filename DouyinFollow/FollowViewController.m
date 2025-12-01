@@ -47,8 +47,9 @@
 //  }
 
   NSArray *lacalUsers = [[FMDBManager sharedManager] getUsersWithGroup:0 pageSize:13];
+  NSLog(@"localUSers:%@",lacalUsers);
   if (lacalUsers.count > 0) {
-    NSLog(@"从本地加载：%@",[NSDate date]);
+    NSLog(@"从本地加载：%@ ",[NSDate date]);
     self.users = [lacalUsers mutableCopy];
     [self.tableView reloadData];
   }
@@ -86,30 +87,37 @@
 
 - (void)loadFollowData {
     NSInteger group = [NetworkManager sharedManager].group;
-
+  NSLog(@"开始请求 group：%ld", group);
     [[NetworkManager sharedManager] getFollowListWithGroup:group
                                                    success:^(NSArray<FollowUserModel *> * _Nonnull users,
                                                              NSInteger nextGroup,
                                                              BOOL hasMore) {
         dispatch_async(dispatch_get_main_queue(), ^{
+          NSLog(@"请求成功，返回用户数量 = %ld, nextGroup = %ld, hasMore = %d",users.count, nextGroup, hasMore);
             self.isLoadingMore = NO;
+          if (users.count > 0) {
+            [[FMDBManager sharedManager] saveUsers:users];
+          }
+          NSArray *finalUsers = [[FMDBManager sharedManager] getUsersWithGroup:group pageSize:13];
             if (group == 0) {
+              if (users.count > 0) {
+                NSLog(@"重制前:%ld",self.users.count);
+               // [[FMDBManager sharedManager] resetDB];
                 self.users = [users mutableCopy];
+//                [[FMDBManager sharedManager] saveUsers:users];
+//                NSLog(@"重制后:%ld",self.users.count);
+//                [self.tableView reloadData];
+              }
             } else {
+              NSLog(@"追加前: %ld",self.users.count);
                 [self.users addObjectsFromArray:users];
+              NSLog(@"追加后: %ld",self.users.count);
+              [[FMDBManager sharedManager] saveUsers:users];
             }
-
-            // 排序（可选）
             [self sortUsersBySpecialFollow:nil];
-
-            // 刷新 tableView
             [self.tableView reloadData];
-
-            // 更新分页状态
             [NetworkManager sharedManager].group = nextGroup;
             [NetworkManager sharedManager].hasMore = hasMore;
-
-            // 结束刷新控件
             if (self.tableView.refreshControl.isRefreshing) {
                 [self.tableView.refreshControl endRefreshing];
             }

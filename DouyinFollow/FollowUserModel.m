@@ -18,7 +18,7 @@
       _userId = dict[@"userId"] ?: @"";
       _username = dict[@"username"] ?: @"";
       _avatar = dict[@"avatar"] ?: @"";
-      _isV = dict[@"isV"] ?: @NO;
+      _isV = dict[@"isV"];
       _cursor = dict[@"cursor"];
       _isFollowing = @YES;
       _isMutualFollow = @NO;
