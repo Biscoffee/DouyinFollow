@@ -6,7 +6,7 @@
 //
 
 #import "AppDelegate.h"
-
+#import "SDWebImage/SDWebImage.h"
 @interface AppDelegate ()
 
 @end
@@ -15,8 +15,15 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSLog(@"启动%@", [NSDate date]);
+  SDImageCacheConfig *config = [SDImageCache sharedImageCache].config;
 
-    return YES;
+      //内存缓存上限，50MB
+      config.maxMemoryCost = 50 * 1024 * 1024;
+      //磁盘缓存上限，200MB
+      config.maxDiskSize = 200 * 1024 * 1024;
+      //磁盘缓存有效期（秒），例如一周
+      config.maxDiskAge = 7 * 24 * 60 * 60;
+      return YES;
 }
 
 #pragma mark - UISceneSession lifecycle

@@ -155,33 +155,33 @@ static SDImageRoundCornerTransformer *avatarTransformer = nil;
 }
 
 - (void)layoutSubviews {
-    [super layoutSubviews];
-    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:self.specialTagLabel.bounds
-                                                    cornerRadius:self.specialTagLabel.bounds.size.height / 2];
-    if (!self.specialTagLabel.layer.mask) {
-        CAShapeLayer *mask = [CAShapeLayer layer];
-        mask.path = path.CGPath;
-        self.specialTagLabel.layer.mask = mask;
-    } else {
-        ((CAShapeLayer *)self.specialTagLabel.layer.mask).path = path.CGPath;
-    }
-  //删除旧的border
-    for (CALayer *layer in self.specialTagLabel.layer.sublayers.copy) {
-        if ([layer.name isEqualToString:@"specialTagBorder"]) {
-            [layer removeFromSuperlayer];
-        }
-    }
+   [super layoutSubviews];
+   UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:self.specialTagLabel.bounds
+                                                   cornerRadius:self.specialTagLabel.bounds.size.height / 2];
+   if (!self.specialTagLabel.layer.mask) {
+       CAShapeLayer *mask = [CAShapeLayer layer];
+       mask.path = path.CGPath;
+       self.specialTagLabel.layer.mask = mask;
+   } else {
+       ((CAShapeLayer *)self.specialTagLabel.layer.mask).path = path.CGPath;
+   }
+ //删除旧的border
+   for (CALayer *layer in self.specialTagLabel.layer.sublayers.copy) {
+       if ([layer.name isEqualToString:@"specialTagBorder"]) {
+           [layer removeFromSuperlayer];
+       }
+   }
 
-    //添加新 border
-    CAShapeLayer *border = [CAShapeLayer layer];
-    border.name = @"specialTagBorder";
-    border.path = path.CGPath;
-    border.frame = self.specialTagLabel.bounds;
-    border.strokeColor = [UIColor grayColor].CGColor;
-    border.fillColor = UIColor.clearColor.CGColor;
-    border.lineWidth = 0.5;
+   //添加新 border
+   CAShapeLayer *border = [CAShapeLayer layer];
+   border.name = @"specialTagBorder";
+   border.path = path.CGPath;
+   border.frame = self.specialTagLabel.bounds;
+   border.strokeColor = [UIColor grayColor].CGColor;
+   border.fillColor = UIColor.clearColor.CGColor;
+   border.lineWidth = 0.5;
 
-    [self.specialTagLabel.layer addSublayer:border];
+   [self.specialTagLabel.layer addSublayer:border];
 }
 
 - (void)setupWithModel:(FollowUserModel *)model {
@@ -205,17 +205,28 @@ static SDImageRoundCornerTransformer *avatarTransformer = nil;
     UIScreen *screen = self.window.screen;
     CGSize avatarSize = CGSizeMake(40 * screen.scale,
                                    40 * screen.scale);
-
       [self.avatarView sd_setImageWithURL:url
                            placeholderImage:[UIImage imageNamed:@"avatar_placeholder"]
                                     options:SDWebImageRetryFailed |
                                             SDWebImageLowPriority |
-                                            SDWebImageScaleDownLargeImages |
-                                            SDWebImageDecodeFirstFrameOnly
+                                            SDWebImageScaleDownLargeImages |//避免大数据量图片
+                                            SDWebImageProgressiveLoad //启用渐进加载（在图片完全加载前显示低分辨率版本，显著提升用户体验）
                                     context:@{
           SDWebImageContextImageTransformer: avatarTransformer,
           SDWebImageContextImageThumbnailPixelSize: @(avatarSize),
+          //缩略图加载功能
           SDWebImageContextStoreCacheType: @(SDImageCacheTypeMemory)
+          //另一种用法：使用图片变换功能创建缩略图：SDImageTransformer
+//          // 创建缩略图变换器
+//          SDImageResizingTransformer *transformer = [SDImageResizingTransformer transformerWithSize:CGSizeMake(200, 200)
+//                                                                                          scaleMode:SDImageScaleModeAspectFill];
+//
+//          // 应用变换器加载图片
+//          [imageView sd_setImageWithURL:highResURL
+//                        placeholderImage:placeholder
+//                                 options:0
+//                                context:@{SDWebImageContextImageTransformer : transformer}];
+
       }
                                    progress:nil
                                   completed:nil];
@@ -253,6 +264,9 @@ static SDImageRoundCornerTransformer *avatarTransformer = nil;
       [self.delegate followCell:self didClickMoreBtnWithModel:self.currentModel];
   }
 }
+
+
+
 
 //引用学长博客的一段话：而且依我本人之见，最好使用清除旧数据而不是remove多余的子视图。因为这个正在新建的cell后面也许也会进入自动释放池，而且它到时候也可能会被拿来复用，如果那个复用它的cell刚好需要显示button而这个被复用的cell连button这个视图都没添加到cell上，那直接向button添加数据时程序就会crash，所以清除所有数据是不错的选择，反正每次执行编辑函数：cellForRowAtIndexPath:时都会为对应行组的cell重新添加那些子视图上的数据（相当于覆写了旧数据），我们只需要在所有的重新添加数据操作之前讲被复用的cell上子视图的数据全删了就行。
 

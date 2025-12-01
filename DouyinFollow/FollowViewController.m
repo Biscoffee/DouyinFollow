@@ -12,6 +12,7 @@
 #import "moreViewController.h"
 #import <Masonry/Masonry.h>
 #import "FMDBManager.h"
+#import "SDWebImage/SDWebImage.h"
 
 @interface FollowViewController () <UITableViewDelegate, UITableViewDataSource, FollowTableViewCellDelegate, moreViewControllerDelegate>
 
@@ -49,7 +50,7 @@
   NSArray *lacalUsers = [[FMDBManager sharedManager] getUsersWithGroup:0 pageSize:13];
   NSLog(@"localUSers:%@",lacalUsers);
   if (lacalUsers.count > 0) {
-    NSLog(@"从本地加载：%@ ",[NSDate date]);
+    NSLog(@"从本地加载：%ld跳数据，时间：%@ ",lacalUsers.count, [NSDate date]);
     self.users = [lacalUsers mutableCopy];
     [self.tableView reloadData];
   }
@@ -137,25 +138,53 @@
 
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (![NetworkManager sharedManager].hasMore) return;
-    if (self.isLoadingMore) return;
+  if (![NetworkManager sharedManager].hasMore) return;
+  if (self.isLoadingMore) return;
 
-    CGFloat offsetY = scrollView.contentOffset.y;
-    CGFloat contentHeight = scrollView.contentSize.height;
-    CGFloat visibleHeight = scrollView.frame.size.height;
+  CGFloat offsetY = scrollView.contentOffset.y;
+  CGFloat contentHeight = scrollView.contentSize.height;
+  CGFloat visibleHeight = scrollView.frame.size.height;
 
-    //提前 800 像素预加载）
-    if (offsetY > contentHeight - visibleHeight - 800) {
-        self.isLoadingMore = YES;
-        [self loadFollowData];
-    }
+  //提前 800 像素预加载）
+  if (offsetY > contentHeight - visibleHeight - 800) {
+    self.isLoadingMore = YES;
+    [self loadFollowData];
+  }
+  if (scrollView.isDragging) {
+    NSLog(@"dragging");
+    [[SDWebImageManager sharedManager] cancelAll];
+  } else if (scrollView.isDecelerating){
+    NSArray<NSURL *> *prefetchURLS = [self nextScreenImageURLs];
+    [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:prefetchURLS];
+  }else {
+    NSLog(@"非isDragging非isDeclerating");
+  }
 }
 
+- (NSArray<NSURL *> *)nextScreenImageURLs {
+  NSArray *visible = [self.tableView indexPathsForVisibleRows];
+  if (visible.count == 0) return @[];
+
+  //最后一个 cell 的 indexPath
+  NSIndexPath *last = [visible lastObject];
+  NSInteger start = last.row + 1;
+  NSInteger end = MIN(start + 13, self.users.count - 1); //下一屏幕
+
+  NSMutableArray *urls = [NSMutableArray array];
+  for (NSInteger i = start; i <= end; i++) {
+      FollowUserModel *m = self.users[i];
+      if (m.avatar.length > 0) {
+          NSURL *url = [NSURL URLWithString:m.avatar];
+          if (url) [urls addObject:url];
+      }
+  }
+  NSLog(@"next");
+  return urls;
+}
 
 - (NSMutableArray<FollowUserModel *> *)sortUsersBySpecialFollow:(NSArray<FollowUserModel *> *)userList {
   NSMutableArray *targetArray = userList ? [userList mutableCopy] : [self.users mutableCopy];
   if (targetArray.count == 0) return [NSMutableArray array];
-
   NSMutableArray *special = [NSMutableArray array];
   NSMutableArray *normal = [NSMutableArray array];
 
@@ -258,6 +287,32 @@
   [model saveLocalState];
   [self.tableView reloadData];
   [self showAlertWithMessage:@"已取消关注"];
+}
+
+
+#pragma mark - 列表滑动时暂停加载 停止时恢复
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+  NSLog(@"预加载1");
+    NSArray<NSURL *> *prefetchURLS = [self nextScreenImageURLs];
+    [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:prefetchURLS];
+
+    NSArray *cells = self.tableView.visibleCells;
+    for (FollowTableViewCell *cell in cells) {
+        [cell setupWithModel:cell.currentModel];
+    }
+}
+
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
+  NSLog(@"预加载2");
+  if (!decelerate) {
+    NSArray<NSURL *> *prefetchURLS = [self nextScreenImageURLs];
+    [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:prefetchURLS];
+
+    NSArray *cells = self.tableView.visibleCells;
+    for (FollowTableViewCell *cell in cells) {
+        [cell setupWithModel:cell.currentModel];
+    }
+  }
 }
 
 
