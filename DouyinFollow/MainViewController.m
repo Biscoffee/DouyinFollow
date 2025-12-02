@@ -51,17 +51,12 @@
   [self setupPages];
 }
 
-- (void)viewDidLayoutSubviews {
+
+- (void)viewDidLayoutSubviews {//重写，在计算布局后都会再次执行，UI的更新都写在这里
   [super viewDidLayoutSubviews];
   [self updateSegmentStyleAndUnderline];
 }
 
-- (CGRect)underlineFrame:(NSInteger)index {
-    CGFloat segmentWidth = (self.view.bounds.size.width - 40) / 4;
-    CGFloat underlineWidth = segmentWidth * 0.6;
-    CGFloat x = segmentWidth * index + (segmentWidth - underlineWidth) / 2;
-    return CGRectMake(x, 38, underlineWidth, 2);
-}
 
 - (void)setupPages {
   self.scrollView = [[UIScrollView alloc] init];
@@ -146,32 +141,42 @@
   });
 }
 
+#pragma mark - 自定义view下划线相关同步方法
+
+- (CGRect)underlineFrame:(NSInteger)index {
+    CGFloat segmentWidth = self.segmentControl.bounds.size.width / 4.0;
+    CGFloat underlineWidth = segmentWidth * 0.6;
+    CGFloat x = segmentWidth * index + (segmentWidth - underlineWidth) / 2;
+    return CGRectMake(x, 38, underlineWidth, 2);
+}
+
+//点击对应segment触发
 - (void)segmentChanged:(UISegmentedControl *)seg {
     self.underline.frame = [self underlineFrame:seg.selectedSegmentIndex];
     CGFloat width = self.view.bounds.size.width;
     [self.scrollView setContentOffset:CGPointMake(seg.selectedSegmentIndex * width, 0) animated:YES];
 }
 
+//横向滑动触发
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
     NSInteger index = scrollView.contentOffset.x / self.view.bounds.size.width;
     self.segmentControl.selectedSegmentIndex = index;
     self.underline.frame = [self underlineFrame:index];
 }
 
+//布局变化时触发
 - (void)updateSegmentStyleAndUnderline {
     NSInteger currentIndex = self.segmentControl.selectedSegmentIndex;
     self.underline.frame = [self underlineFrame:currentIndex];
 }
-
+//滚动实时更新下滑线
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     CGFloat offsetX = scrollView.contentOffset.x;
-
-    CGFloat segmentWidth = (self.view.bounds.size.width - 40) / 4;
+    CGFloat segmentWidth = self.segmentControl.bounds.size.width / 4.0;
     CGFloat underlineWidth = segmentWidth * 0.6;
     CGFloat percent = offsetX / self.view.bounds.size.width;
-
     CGFloat x = segmentWidth * percent + (segmentWidth - underlineWidth) / 2;
-
     self.underline.frame = CGRectMake(x, 38, underlineWidth, 2);
 }
+//如果要实现其他的一些详细效果，就要自己自定义一个segment类/因为苹果自带的segment是不支持实时跟随等效果的
 @end
