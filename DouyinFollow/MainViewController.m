@@ -163,4 +163,15 @@
     self.underline.frame = [self underlineFrame:currentIndex];
 }
 
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    CGFloat offsetX = scrollView.contentOffset.x;
+
+    CGFloat segmentWidth = (self.view.bounds.size.width - 40) / 4;
+    CGFloat underlineWidth = segmentWidth * 0.6;
+    CGFloat percent = offsetX / self.view.bounds.size.width;
+
+    CGFloat x = segmentWidth * percent + (segmentWidth - underlineWidth) / 2;
+
+    self.underline.frame = CGRectMake(x, 38, underlineWidth, 2);
+}
 @end
