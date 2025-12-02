@@ -102,6 +102,9 @@
           NSArray *finalUsers = [[FMDBManager sharedManager] getUsersWithGroup:group pageSize:13];
             if (group == 0) {
               if (users.count > 0) {
+                for (FollowUserModel *m in users) {
+                  [m loadLocalState];
+                }
                 NSLog(@"重制前:%ld",self.users.count);
                // [[FMDBManager sharedManager] resetDB];
                 self.users = [users mutableCopy];
@@ -111,6 +114,9 @@
               }
             } else {
               NSLog(@"追加前: %ld",self.users.count);
+              for (FollowUserModel *m in users) {
+                [m loadLocalState];
+              }
                 [self.users addObjectsFromArray:users];
               NSLog(@"追加后: %ld",self.users.count);
               [[FMDBManager sharedManager] saveUsers:users];
