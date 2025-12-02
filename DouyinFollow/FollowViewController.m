@@ -53,6 +53,7 @@
     NSLog(@"从本地加载：%ld跳数据，时间：%@ ",lacalUsers.count, [NSDate date]);
     self.users = [lacalUsers mutableCopy];
     [self.tableView reloadData];
+    [self sortUsersBySpecialFollow:nil];
   }
   //dispatch_async(dispatch_get_global_queue(0, 0), ^{
   [self loadFollowData];
@@ -79,6 +80,12 @@
   UIRefreshControl *refresh = [[UIRefreshControl alloc] init];
   [refresh addTarget:self action:@selector(handleRefresh) forControlEvents:UIControlEventValueChanged];
   self.tableView.refreshControl = refresh;
+
+  UIActivityIndicatorView *footer = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+  footer.color = [UIColor systemGray4Color];
+  footer.hidesWhenStopped = YES;
+  footer.frame = CGRectMake(0, 0, 60, 60);
+  self.tableView.tableFooterView = footer;
 }
 
 - (void)handleRefresh {
@@ -87,6 +94,8 @@
 }
 
 - (void)loadFollowData {
+  UIActivityIndicatorView *footer = (UIActivityIndicatorView *)self.tableView.tableFooterView;
+  [footer startAnimating];
     NSInteger group = [NetworkManager sharedManager].group;
   NSLog(@"开始请求 group：%ld", group);
     [[NetworkManager sharedManager] getFollowListWithGroup:group
@@ -131,6 +140,8 @@
 
             NSLog(@"收到用户数量 = %ld", users.count);
         });
+      UIActivityIndicatorView *footer = (UIActivityIndicatorView *)self.tableView.tableFooterView;
+      [footer stopAnimating];
     } failure:^(NSString * _Nonnull error) {
         NSLog(@"请求失败");
         self.isLoadingMore = NO;
@@ -139,6 +150,8 @@
         if (self.tableView.refreshControl.isRefreshing) {
             [self.tableView.refreshControl endRefreshing];
         }
+      UIActivityIndicatorView *footer = (UIActivityIndicatorView *)self.tableView.tableFooterView;
+      [footer stopAnimating];
     }];
 }
 
